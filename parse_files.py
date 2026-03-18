@@ -10,9 +10,9 @@ import pdfplumber
 import openpyxl
 import docx
 
-# ── OCR paths (Windows) ───────────────────────────────────────────────────────
-_TESSERACT_PATH = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-_POPPLER_PATH   = (
+# ── OCR paths — Windows only; on Linux tesseract+poppler are on system PATH ──
+_WIN_TESSERACT = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+_WIN_POPPLER   = (
     r"C:\Users\shray\AppData\Local\Microsoft\WinGet\Packages"
     r"\oschwartz10612.Poppler_Microsoft.Winget.Source_8wekyb3d8bbwe"
     r"\poppler-25.07.0\Library\bin"
@@ -23,10 +23,16 @@ def _ocr_pdf(file_bytes: bytes, filename: str) -> list[dict]:
     import pytesseract
     from pdf2image import convert_from_bytes
 
-    pytesseract.pytesseract.tesseract_cmd = _TESSERACT_PATH
+    # On Windows set explicit paths; on Linux both tools are on system PATH
+    if os.name == "nt":
+        pytesseract.pytesseract.tesseract_cmd = _WIN_TESSERACT
+        poppler_path = _WIN_POPPLER
+    else:
+        poppler_path = None
+
     print(f"  [OCR] No text layer found in {filename} — running OCR...", flush=True)
 
-    images = convert_from_bytes(file_bytes, poppler_path=_POPPLER_PATH)
+    images = convert_from_bytes(file_bytes, poppler_path=poppler_path)
     chunks = []
     for i, img in enumerate(images, start=1):
         text = pytesseract.image_to_string(img).strip()
