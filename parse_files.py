@@ -5,13 +5,47 @@ for citations: page number (PDF), sheet + row (Excel), paragraph index (DOCX/TXT
 """
 
 import io
+import os
 import pdfplumber
 import openpyxl
 import docx
 
+# ── OCR paths (Windows) ───────────────────────────────────────────────────────
+_TESSERACT_PATH = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+_POPPLER_PATH   = (
+    r"C:\Users\shray\AppData\Local\Microsoft\WinGet\Packages"
+    r"\oschwartz10612.Poppler_Microsoft.Winget.Source_8wekyb3d8bbwe"
+    r"\poppler-25.07.0\Library\bin"
+)
+
+def _ocr_pdf(file_bytes: bytes, filename: str) -> list[dict]:
+    """OCR fallback for image-based PDFs. Requires tesseract + poppler."""
+    import pytesseract
+    from pdf2image import convert_from_bytes
+
+    pytesseract.pytesseract.tesseract_cmd = _TESSERACT_PATH
+    print(f"  [OCR] No text layer found in {filename} — running OCR...", flush=True)
+
+    images = convert_from_bytes(file_bytes, poppler_path=_POPPLER_PATH)
+    chunks = []
+    for i, img in enumerate(images, start=1):
+        text = pytesseract.image_to_string(img).strip()
+        print(f"  [OCR] Page {i}: {len(text)} chars", flush=True)
+        if text:
+            chunks.append({
+                "text": text,
+                "source": filename,
+                "page": i,
+                "type": "pdf",
+            })
+    return chunks
+
 
 def parse_pdf(file_bytes: bytes, filename: str) -> list[dict]:
-    """Parse PDF page by page. Returns one dict per non-empty page."""
+    """Parse PDF page by page.
+    Fast path: pdfplumber (text-based PDFs).
+    Fallback:  OCR via tesseract (scanned/image-based PDFs).
+    """
     chunks = []
     with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
         for i, page in enumerate(pdf.pages, start=1):
@@ -23,6 +57,10 @@ def parse_pdf(file_bytes: bytes, filename: str) -> list[dict]:
                     "page": i,
                     "type": "pdf",
                 })
+
+    if not chunks:
+        chunks = _ocr_pdf(file_bytes, filename)
+
     return chunks
 
 

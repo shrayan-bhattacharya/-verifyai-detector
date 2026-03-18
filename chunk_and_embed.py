@@ -85,6 +85,8 @@ def create_vector_store(chunks: list[dict], collection_name: str = "sources"):
                 meta[k] = v
         metadatas.append(meta)
 
+    if not ids:
+        raise ValueError("No chunks to embed — the parsed documents may be empty or unreadable.")
     collection.add(ids=ids, documents=documents, metadatas=metadatas)
     return collection, chunks
 

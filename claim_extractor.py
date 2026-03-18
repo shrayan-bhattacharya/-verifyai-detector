@@ -30,23 +30,25 @@ CLAIM 3: [claim text]
 Do NOT include any other text, headers, or explanations."""
 
 
-def extract_claims(report_text: str, api_key: str) -> list[dict]:
+def extract_claims(report_text: str, api_key: str, context: str = "") -> list[dict]:
     """
     Sends the report to Claude and parses the response into a list of
     {"claim_number": int, "claim_text": str} dicts.
+    Optional context helps Claude understand what the report is about.
     """
     client = anthropic.Anthropic(api_key=api_key)
+
+    context_line = f"Context about this report: {context}\n\n" if context.strip() else ""
+    user_content = (
+        f"{context_line}"
+        f"Extract all verifiable factual claims from this report:\n\n{report_text}"
+    )
 
     message = client.messages.create(
         model="claude-sonnet-4-20250514",
         max_tokens=2048,
         system=SYSTEM_PROMPT,
-        messages=[
-            {
-                "role": "user",
-                "content": f"Extract all verifiable factual claims from this report:\n\n{report_text}",
-            }
-        ],
+        messages=[{"role": "user", "content": user_content}],
     )
 
     raw = message.content[0].text.strip()

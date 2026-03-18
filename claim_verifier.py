@@ -59,6 +59,7 @@ def verify_claim(
     api_key: str,
     top_k: int = 7,
     distance_threshold: float = 1.2,
+    context: str = "",
 ) -> dict:
     """
     Verifies a single claim against the ChromaDB source collection.
@@ -79,16 +80,18 @@ def verify_claim(
             "sources_checked": 0,
         }
 
-    # Build context block with labelled citations
-    context_parts = []
+    # Build source block with labelled citations
+    source_parts = []
     for h in relevant:
         citation = _build_citation(h)
-        context_parts.append(f"SOURCE [{citation}]: {h['text']}")
-    context = "\n\n".join(context_parts)
+        source_parts.append(f"SOURCE [{citation}]: {h['text']}")
+    source_block = "\n\n".join(source_parts)
 
+    context_line = f"Context about this report: {context}\n\n" if context.strip() else ""
     user_prompt = (
+        f"{context_line}"
         f"CLAIM: {claim_text}\n\n"
-        f"SOURCE MATERIAL:\n{context}"
+        f"SOURCE MATERIAL:\n{source_block}"
     )
 
     client = anthropic.Anthropic(api_key=api_key)
